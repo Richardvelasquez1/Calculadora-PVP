@@ -40,7 +40,7 @@ onValue(dbRef, (snapshot) => {
 
 // --- FUNCIONES DE TECLADO ---
 window.addNumber = function(num) {
-    if (num === ',') num = '.';
+    if (num === ',') num = '.'; // Si viene del teclado físico como coma
     if (num === '.' && currentInput.includes('.')) return;
     if (currentInput === "0" && num !== '.') currentInput = num;
     else currentInput += num;
@@ -159,4 +159,12 @@ window.exportExcel = function() {
     a.href = URL.createObjectURL(blob);
     a.download = 'Inventario_Nube.csv';
     a.click();
+};
+
+window.changeCant = function() {
+    let val = prompt("Cantidad de productos:", cantidad);
+    if (val !== null && !isNaN(val) && val > 0) {
+        cantidad = parseFloat(val);
+        renderScreens(currentInput);
+    }
 };
