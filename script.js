@@ -1,5 +1,26 @@
+// 1. IMPORTAR LIBRERÍAS DE FIREBASE (Desde la nube)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+// 2. TUS LLAVES (REEMPLAZA ESTO CON LO QUE COPIASTE)
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAfFUdqMlbXW4hEA0yMAyxdvIFndFR5u2M",
+  authDomain: "calculadora-pvp-3c085.firebaseapp.com",
+  projectId: "calculadora-pvp-3c085",
+  storageBucket: "calculadora-pvp-3c085.firebasestorage.app",
+  messagingSenderId: "920731742944",
+  appId: "1:920731742944:web:5c1f2ec7db5c81f9909685",
+  measurementId: "G-LCTM06T7EF"
+};
+
+// 3. INICIALIZAR
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+const dbRef = ref(database, 'productos');
+
 // --- ESTADO INICIAL ---
-let db = JSON.parse(localStorage.getItem('productsDB')) || {};
+let db = {}; // Ahora vive en la nube
 let currentInput = "0";
 let cantidad = 1;
 let ivaActivo = false;
@@ -8,213 +29,134 @@ let ganancia = 0;
 const nameInput = document.getElementById('product-name');
 const formulaDisplay = document.getElementById('formula-display');
 const resultDisplay = document.getElementById('result-display');
-const syncModal = document.getElementById('sync-modal');
-const syncArea = document.getElementById('sync-area');
 
-let suggestionsContainer = document.getElementById('suggestions-list');
-if (!suggestionsContainer) {
-    suggestionsContainer = document.createElement('div');
-    suggestionsContainer.id = 'suggestions-list';
-    suggestionsContainer.className = 'suggestions-list';
-    nameInput.parentNode.appendChild(suggestionsContainer);
-}
+// --- ESCUCHAR CAMBIOS EN TIEMPO REAL ---
+// Esto hace que si grabas en el Celular 1, el Celular 2 se actualice solo
+onValue(dbRef, (snapshot) => {
+    const data = snapshot.val();
+    db = data || {};
+    console.log("Inventario actualizado desde la nube");
+});
 
-// --- LÓGICA DE TECLADO (CORREGIDA PARA EL PUNTO VISUAL) ---
-
-function addNumber(num) {
-    // Si presionan coma, la tratamos como punto
+// --- FUNCIONES DE TECLADO ---
+window.addNumber = function(num) {
     if (num === ',') num = '.';
-
-    // 1. Validar que no haya doble punto
     if (num === '.' && currentInput.includes('.')) return;
-
-    // 2. Actualizar el valor de texto
-    if (currentInput === "0" && num !== '.') {
-        currentInput = num;
-    } else {
-        currentInput += num;
-    }
-    
-    // 3. ACTUALIZACIÓN VISUAL INMEDIATA
-    // Mostramos el texto tal cual (con el punto al final si existe)
+    if (currentInput === "0" && num !== '.') currentInput = num;
+    else currentInput += num;
     renderScreens(currentInput);
-}
+};
 
 function renderScreens(textoMostrar) {
     let precio = parseFloat(textoMostrar) || 0;
     let unitario = precio / cantidad;
     let valorIVA = ivaActivo ? unitario * 0.16 : 0;
     let pvp = (unitario + valorIVA) * (1 + ganancia / 100);
-    
-    // Aquí está el truco: usamos 'textoMostrar' para la fórmula, así el punto se queda
     formulaDisplay.innerText = `${textoMostrar} / ${cantidad} + IVA(${ivaActivo ? '16%' : '0%'}) + G(${ganancia}%)`;
     resultDisplay.innerText = `PVP: ${pvp.toFixed(2)}`;
 }
 
-// Re-calcula cuando cambian otros valores (IVA, Cantidad, etc.)
-function calculatePVP() {
-    renderScreens(currentInput);
-}
+window.calculatePVP = () => renderScreens(currentInput);
 
-function backspace() {
+window.backspace = function() {
     currentInput = currentInput.length > 1 ? currentInput.slice(0, -1) : "0";
-    calculatePVP();
-}
+    renderScreens(currentInput);
+};
 
-function changeCant() {
-    let val = prompt("Cantidad de productos:", cantidad);
-    if (val !== null && !isNaN(val) && val > 0) {
-        cantidad = parseFloat(val);
-        calculatePVP();
-    }
-}
-
-function toggleIVA() {
+window.toggleIVA = function() {
     ivaActivo = !ivaActivo;
-    const btnIva = document.getElementById('btn-iva');
-    if(btnIva) btnIva.classList.toggle('active', ivaActivo);
-    calculatePVP();
-}
+    document.getElementById('btn-iva').classList.toggle('active', ivaActivo);
+    renderScreens(currentInput);
+};
 
-function setGain(val) {
+window.setGain = function(val) {
     ganancia = val;
     document.querySelectorAll('.btn-perc').forEach(b => b.classList.remove('active'));
-    const btnGain = document.getElementById(`btn-${val}`);
-    if(btnGain) btnGain.classList.add('active');
-    calculatePVP();
-}
+    document.getElementById(`btn-${val}`).classList.add('active');
+    renderScreens(currentInput);
+};
 
-// --- PERSISTENCIA Y AUTOCOMPLETADO ---
-
-function saveProduct() {
+// --- GUARDAR EN LA NUBE (FIREBASE) ---
+window.saveProduct = function() {
     const name = nameInput.value.trim();
-    if (!name) return alert("Escribe un nombre de producto");
+    if (!name) return alert("Escribe un nombre");
 
-    db[name] = {
+    const newProduct = {
         precio: currentInput,
         cantidad: cantidad,
         iva: ivaActivo,
         ganancia: ganancia,
         fecha: new Date().toLocaleString()
     };
-    
-    localStorage.setItem('productsDB', JSON.stringify(db));
-    alert("¡Producto guardado!");
-}
 
-function deleteProduct() {
+    // Esto lo envía a internet para todos los celulares
+    set(ref(database, 'productos/' + name), newProduct)
+        .then(() => alert("¡Guardado en la Nube!"))
+        .catch(() => alert("Error al sincronizar"));
+};
+
+window.deleteProduct = function() {
     const name = nameInput.value.trim();
-    if (db[name] && confirm(`¿Eliminar "${name}"?`)) {
-        delete db[name];
-        localStorage.setItem('productsDB', JSON.stringify(db));
+    if (db[name] && confirm(`¿Eliminar "${name}" de todos los celulares?`)) {
+        remove(ref(database, 'productos/' + name));
         resetCalc();
     }
-}
+};
 
+// --- AUTOCOMPLETADO (USA LA DATA DE LA NUBE) ---
 nameInput.addEventListener('input', function() {
     const query = this.value.toLowerCase().trim();
+    const suggestionsContainer = document.getElementById('suggestions-list');
     suggestionsContainer.innerHTML = ""; 
-    if (query === "") {
-        suggestionsContainer.style.display = "none";
-        return;
-    }
+    
+    if (query === "") return suggestionsContainer.style.display = "none";
+
     const matches = Object.keys(db).filter(name => name.toLowerCase().includes(query));
-    if (matches.length === 0) {
-        suggestionsContainer.style.display = "none";
-        return;
+    if (matches.length > 0) {
+        suggestionsContainer.style.display = "block";
+        matches.forEach(name => {
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.textContent = name;
+            div.onclick = () => {
+                nameInput.value = name;
+                loadProductData(name);
+                suggestionsContainer.style.display = "none";
+            };
+            suggestionsContainer.appendChild(div);
+        });
     }
-    suggestionsContainer.style.display = "block";
-    matches.forEach(name => {
-        const div = document.createElement('div');
-        div.className = 'suggestion-item';
-        div.textContent = name;
-        div.onclick = () => {
-            nameInput.value = name;
-            loadProductData(name);
-            suggestionsContainer.innerHTML = "";
-            suggestionsContainer.style.display = "none";
-        };
-        suggestionsContainer.appendChild(div);
-    });
 });
 
 function loadProductData(name) {
     const p = db[name];
-    currentInput = p.precio.toString(); // Aseguramos que sea texto
+    currentInput = p.precio;
     cantidad = p.cantidad;
     ivaActivo = p.iva;
     ganancia = p.ganancia;
-    
-    const btnIva = document.getElementById('btn-iva');
-    if(btnIva) btnIva.classList.toggle('active', ivaActivo);
-    
-    document.querySelectorAll('.btn-perc').forEach(b => b.classList.remove('active'));
-    if (ganancia > 0) {
-        const btn = document.getElementById(`btn-${ganancia}`);
-        if(btn) btn.classList.add('active');
-    }
-    calculatePVP();
+    renderScreens(currentInput);
 }
 
-function resetCalc() {
+window.resetCalc = function() {
     currentInput = "0";
     cantidad = 1;
     ivaActivo = false;
     ganancia = 0;
     nameInput.value = "";
-    const btnIva = document.getElementById('btn-iva');
-    if(btnIva) btnIva.classList.remove('active');
-    document.querySelectorAll('.btn-perc').forEach(b => b.classList.remove('active'));
-    calculatePVP();
-}
-
-// --- SINCRONIZACIÓN (MODAL) ---
-
-function exportJSON() {
-    const data = JSON.stringify(db);
-    syncArea.value = data;
-    syncModal.style.display = 'flex';
-    setTimeout(() => { syncArea.focus(); syncArea.select(); }, 100);
-}
-
-function importJSON() {
-    syncArea.value = "";
-    syncModal.style.display = 'flex';
-}
-
-function procesarImportacion() {
-    const data = syncArea.value.trim();
-    try {
-        const parsed = JSON.parse(data);
-        db = { ...db, ...parsed };
-        localStorage.setItem('productsDB', JSON.stringify(db));
-        alert("¡Importación exitosa!");
-        location.reload();
-    } catch (e) {
-        alert("Error en el código.");
-    }
-}
-
-function cerrarModal() {
-    syncModal.style.display = 'none';
-}
+    renderScreens(currentInput);
+};
 
 // --- EXCEL ---
-
-function exportExcel() {
-    let csv = "\ufeff"; 
-    csv += "Nombre;Precio Compra;Cantidad;IVA;Ganancia %;PVP Final;Fecha\n";
+window.exportExcel = function() {
+    let csv = "\ufeffName;Cost;Cant;IVA;Gain;PVP;Date\n";
     Object.keys(db).forEach(name => {
         const p = db[name];
-        let precio = parseFloat(p.precio) || 0;
-        let unitario = precio / p.cantidad;
-        let valorIVA = p.iva ? unitario * 0.16 : 0;
-        let pvp = (unitario + valorIVA) * (1 + p.ganancia / 100);
-        csv += `${name.replace(/;/g, ",")};${p.precio};${p.cantidad};${p.iva?'16%':'0%'};${p.ganancia}%;${pvp.toFixed(2)};${p.fecha}\n`;
+        let pvp = (parseFloat(p.precio)/p.cantidad + (p.iva?p.precio/p.cantidad*0.16:0))*(1+p.ganancia/100);
+        csv += `${name};${p.precio};${p.cantidad};${p.iva?'16%':'0%'};${p.ganancia}%;${pvp.toFixed(2)};${p.fecha}\n`;
     });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `Bodega_Inventario.csv`;
+    a.download = 'Inventario_Nube.csv';
     a.click();
-}
+};
