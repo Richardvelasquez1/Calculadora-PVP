@@ -1,0 +1,112 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { 
+    background-color: #e0e0e0; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.calculator-container {
+    width: 360px;
+    background: #333;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0px 10px 25px rgba(0,0,0,0.3);
+}
+
+#product-name {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1rem;
+    border-radius: 5px;
+    border: none;
+    margin-bottom: 5px;
+}
+
+.display-screen {
+    background: #a8d08d;
+    color: #1a1a1a;
+    padding: 15px;
+    text-align: right;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    min-height: 80px;
+}
+
+#formula-display { font-size: 1.1rem; opacity: 0.8; }
+#result-display { font-size: 1.8rem; font-weight: bold; margin-top: 5px; }
+
+.grid-row, .main-grid { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 8px; 
+    margin-bottom: 8px; 
+}
+
+button {
+    height: 55px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.1s;
+    background: #fdfdfd;
+}
+
+button:active { transform: scale(0.95); }
+
+/* Colores Específicos */
+.btn-perc { background: #5dade2; color: white; }
+.btn-reset { background: #e74c3c; color: white; }
+.btn-save { background: #27ae60; color: white; }
+.btn-action { background: #bdc3c7; font-size: 0.8rem; }
+.btn-danger { background: #922b21; color: white; font-size: 0.7rem; }
+
+/* Efecto Hundido */
+.active {
+    box-shadow: inset 4px 4px 10px rgba(0,0,0,0.6);
+    filter: brightness(0.8);
+    transform: translateY(2px);
+}
+
+/* Contenedor principal de sugerencias */
+.suggestions-list {
+    position: absolute;
+    width: 320px; /* Ajustado al ancho interno de la calculadora */
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(44, 62, 80, 0.95); /* Azul oscuro semitransparente */
+    border: 1px solid #5dade2;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+/* Cada item de la lista */
+.suggestion-item {
+    padding: 12px 15px;
+    color: #ecf0f1;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-size: 0.95rem;
+    transition: background 0.2s;
+}
+
+/* Efecto al pasar el dedo o mouse */
+.suggestion-item:hover {
+    background: #3498db;
+    color: white;
+}
+
+/* Scrollbar personalizado para que se vea moderno */
+.suggestions-list::-webkit-scrollbar {
+    width: 6px;
+}
+.suggestions-list::-webkit-scrollbar-thumb {
+    background: #5dade2;
+    border-radius: 10px;
+}
+

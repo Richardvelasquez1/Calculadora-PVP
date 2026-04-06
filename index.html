@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Precios PVP</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="calculator-container">
+        <div class="screens">
+            <input type="text" id="product-name" placeholder="Nombre del producto" autocomplete="off">
+            
+            <div class="display-screen">
+                <div id="formula-display">0 / 1 + 0 + 0%</div>
+                <div id="result-display">PVP: 0.00</div>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <button onclick="exportExcel()" class="btn-action">Excel</button>
+            <button onclick="exportJSON()" class="btn-action">JSON</button>
+            <button onclick="importJSON()" class="btn-action">IMPORT</button>
+            <button onclick="deleteProduct()" class="btn-danger">ELIMINAR</button>
+        </div>
+
+        <div class="main-grid">
+            <button id="btn-iva" onclick="toggleIVA()">IVA</button>
+            <button id="btn-cant" onclick="changeCant()">CANT</button>
+            <button onclick="backspace()">《</button>
+            <button class="btn-perc" id="btn-15" onclick="setGain(15)">15%</button>
+            
+            <button onclick="addNumber('7')">7</button>
+            <button onclick="addNumber('8')">8</button>
+            <button onclick="addNumber('9')">9</button>
+            <button class="btn-perc" id="btn-20" onclick="setGain(20)">20%</button>
+            
+            <button onclick="addNumber('4')">4</button>
+            <button onclick="addNumber('5')">5</button>
+            <button onclick="addNumber('6')">6</button>
+            <button class="btn-perc" id="btn-25" onclick="setGain(25)">25%</button>
+            
+            <button onclick="addNumber('1')">1</button>
+            <button onclick="addNumber('2')">2</button>
+            <button onclick="addNumber('3')">3</button>
+            <button class="btn-perc" id="btn-30" onclick="setGain(30)">30%</button>
+            
+            <button class="btn-reset" onclick="resetCalc()">C</button>
+            <button onclick="addNumber('0')">0</button>
+            <button onclick="addNumber('.')">,</button>
+            <button class="btn-save" onclick="saveProduct()">GUARDAR</button>
+        </div>
+    </div>
+
+    <div id="sync-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; font-family: sans-serif;">
+        <div style="background:#2c3e50; padding:20px; border-radius:15px; width:90%; max-width:500px; border: 2px solid #3498db;">
+            <h3 style="color:white; margin-top:0; text-align:center;">Sincronizar Inventario</h3>
+            <textarea id="sync-area" style="width:100%; height:250px; border-radius:8px; padding:10px; font-family:monospace; font-size:11px; margin-bottom:15px; border:none; resize:none; width: 100%; box-sizing: border-box;" placeholder="Pega el código aquí..."></textarea>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button onclick="procesarImportacion()" style="background:#27ae60; color:white; border:none; padding:12px 20px; border-radius:5px; cursor:pointer; font-weight:bold;">📥 Importar</button>
+                <button onclick="cerrarModal()" style="background:#e74c3c; color:white; border:none; padding:12px 20px; border-radius:5px; cursor:pointer; font-weight:bold;">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
