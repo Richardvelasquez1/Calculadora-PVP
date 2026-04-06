@@ -1,6 +1,6 @@
 // 1. IMPORTAR LIBRERÍAS DE FIREBASE
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 // 2. TUS LLAVES (VERIFICADAS)
 const firebaseConfig = {
@@ -13,7 +13,7 @@ const firebaseConfig = {
   measurementId: "G-LCTM06T7EF"
 };
 
-// 3. INICIALIZAR FIREBASE
+// 3. INICIALIZAR
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 const dbRef = ref(database, 'productos');
@@ -27,9 +27,11 @@ let ganancia = 0;
 
 const nameInput = document.getElementById('product-name');
 const formulaDisplay = document.getElementById('formula-display');
-const resultDisplay = document.getElementById('result-display');
+const result_display = document.getElementById('result-display');
+const syncModal = document.getElementById('sync-modal');
+const syncArea = document.getElementById('sync-area');
 
-// Contenedor de sugerencias dinámico
+// Contenedor de sugerencias
 let suggestionsContainer = document.getElementById('suggestions-list');
 if (!suggestionsContainer) {
     suggestionsContainer = document.createElement('div');
@@ -38,56 +40,144 @@ if (!suggestionsContainer) {
     nameInput.parentNode.appendChild(suggestionsContainer);
 }
 
-// --- ESCUCHAR CAMBIOS EN TIEMPO REAL ---
+// --- ESCUCHAR NUBE ---
 onValue(dbRef, (snapshot) => {
-    const data = snapshot.val();
-    db = data || {};
-    console.log("Inventario sincronizado");
+    db = snapshot.val() || {};
+    console.log("Datos sincronizados");
 });
 
-// --- FUNCIONES DE PANTALLA ---
-function renderScreens(textoMostrar) {
-    let precio = parseFloat(textoMostrar) || 0;
-    let unitario = precio / cantidad;
-    let valorIVA = ivaActivo ? unitario * 0.16 : 0;
-    let pvp = (unitario + valorIVA) * (1 + ganancia / 100);
-    
-    formulaDisplay.innerText = `${textoMostrar} / ${cantidad} + IVA(${ivaActivo ? '16%' : '0%'}) + G(${ganancia}%)`;
-    resultDisplay.innerText = `PVP: ${pvp.toFixed(2)}`;
+// --- LÓGICA VISUAL ---
+function renderScreens(texto) {
+    let p = parseFloat(texto) || 0;
+    let u = p / cantidad;
+    let vI = ivaActivo ? u * 0.16 : 0;
+    let pvp = (u + vI) * (1 + ganancia / 100);
+    formulaDisplay.innerText = `${texto} / ${cantidad} + IVA(${ivaActivo ? '16%' : '0%'}) + G(${ganancia}%)`;
+    result_display.innerText = `PVP: ${pvp.toFixed(2)}`;
 }
 
-// --- BOTONES (Conectados al HTML mediante window) ---
+// --- BOTONES (Asignar a window para que el HTML los vea) ---
 
-window.addNumber = function(num) {
-    if (num === ',') num = '.';
-    if (num === '.' && currentInput.includes('.')) return;
-    if (currentInput === "0" && num !== '.') currentInput = num;
-    else currentInput += num;
+window.addNumber = (n) => {
+    if (n === ',' || n === '.') {
+        if (currentInput.includes('.')) return;
+        currentInput += '.';
+    } else {
+        currentInput = (currentInput === "0") ? n : currentInput + n;
+    }
     renderScreens(currentInput);
 };
 
-window.backspace = function() {
+window.backspace = () => {
     currentInput = currentInput.length > 1 ? currentInput.slice(0, -1) : "0";
     renderScreens(currentInput);
 };
 
-window.changeCant = function() {
-    let val = prompt("Cantidad de productos:", cantidad);
-    if (val !== null && !isNaN(val) && val > 0) {
-        cantidad = parseFloat(val);
-        renderScreens(currentInput);
-    }
+window.changeCant = () => {
+    let v = prompt("Cantidad:", cantidad);
+    if (v && !isNaN(v)) { cantidad = parseFloat(v); renderScreens(currentInput); }
 };
 
-window.toggleIVA = function() {
+window.toggleIVA = () => {
     ivaActivo = !ivaActivo;
     document.getElementById('btn-iva').classList.toggle('active', ivaActivo);
     renderScreens(currentInput);
 };
 
-window.setGain = function(val) {
-    ganancia = val;
+window.setGain = (g) => {
+    ganancia = g;
     document.querySelectorAll('.btn-perc').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById(`btn-${val}`);
-    if(btn) btn.classList.add('active');
+    document.getElementById(`btn-${g}`).classList.add('active');
     renderScreens(currentInput);
+};
+
+window.resetCalc = () => {
+    currentInput = "0"; cantidad = 1; ivaActivo = false; ganancia = 0;
+    nameInput.value = "";
+    document.getElementById('btn-iva').classList.remove('active');
+    document.querySelectorAll('.btn-perc').forEach(b => b.classList.remove('active'));
+    renderScreens(currentInput);
+};
+
+// --- ACCIONES FIREBASE ---
+
+window.saveProduct = () => {
+    const name = nameInput.value.trim();
+    if (!name) return alert("Falta nombre");
+    const data = { precio: currentInput, cantidad, iva: ivaActivo, ganancia, fecha: new Date().toLocaleString() };
+    set(ref(database, 'productos/' + name), data)
+        .then(() => alert("¡Sincronizado!"))
+        .catch(e => alert("Error: " + e.message));
+};
+
+window.deleteProduct = () => {
+    const name = nameInput.value.trim();
+    if (db[name] && confirm(`¿Eliminar ${name}?`)) {
+        remove(ref(database, 'productos/' + name)).then(() => window.resetCalc());
+    }
+};
+
+// --- MODAL (JSON / IMPORT) ---
+
+window.exportJSON = () => {
+    syncArea.value = JSON.stringify(db, null, 2);
+    syncModal.style.display = 'flex';
+    syncArea.select();
+};
+
+window.importJSON = () => {
+    syncArea.value = "";
+    syncModal.style.display = 'flex';
+    syncArea.placeholder = "Pega el JSON aquí...";
+};
+
+window.procesarImportacion = () => {
+    try {
+        const data = JSON.parse(syncArea.value);
+        update(ref(database, 'productos'), data)
+            .then(() => { alert("Importación exitosa"); window.cerrarModal(); });
+    } catch (e) { alert("Error en formato JSON"); }
+};
+
+window.cerrarModal = () => { syncModal.style.display = 'none'; };
+
+// --- EXCEL ---
+window.exportExcel = () => {
+    let csv = "\ufeffNombre;Costo;Cant;IVA;Ganancia;PVP;Fecha\n";
+    Object.keys(db).forEach(n => {
+        const p = db[n];
+        let u = parseFloat(p.precio)/p.cantidad;
+        let pvp = (u + (p.iva ? u*0.16 : 0)) * (1 + p.ganancia/100);
+        csv += `${n};${p.precio};${p.cantidad};${p.iva?'16%':'0%'};${p.ganancia}%;${pvp.toFixed(2)};${p.fecha}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'Inventario_Bodega.csv';
+    a.click();
+};
+
+// --- SUGERENCIAS ---
+nameInput.addEventListener('input', () => {
+    const q = nameInput.value.toLowerCase().trim();
+    suggestionsContainer.innerHTML = "";
+    if (!q) return suggestionsContainer.style.display = "none";
+    const m = Object.keys(db).filter(n => n.toLowerCase().includes(q));
+    if (m.length > 0) {
+        suggestionsContainer.style.display = "block";
+        m.forEach(n => {
+            const d = document.createElement('div'); d.className = 'suggestion-item'; d.textContent = n;
+            d.onclick = () => {
+                nameInput.value = n;
+                const p = db[n];
+                currentInput = p.precio; cantidad = p.cantidad; ivaActivo = p.iva; ganancia = p.ganancia;
+                document.getElementById('btn-iva').classList.toggle('active', ivaActivo);
+                document.querySelectorAll('.btn-perc').forEach(b => b.classList.remove('active'));
+                if(document.getElementById(`btn-${ganancia}`)) document.getElementById(`btn-${ganancia}`).classList.add('active');
+                renderScreens(currentInput);
+                suggestionsContainer.style.display = "none";
+            };
+            suggestionsContainer.appendChild(d);
+        });
+    }
+});
